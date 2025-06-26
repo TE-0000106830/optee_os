@@ -11,7 +11,6 @@
 #include <crypto/crypto_impl.h>
 #include <kernel/panic.h>
 #include <stdlib.h>
-#include <string.h>
 #include <utee_defines.h>
 
 TEE_Result crypto_hash_alloc_ctx(void **ctx, uint32_t algo)
@@ -598,6 +597,7 @@ TEE_Result crypto_acipher_rsaes_decrypt(uint32_t algo __unused,
 					struct rsa_keypair *key __unused,
 					const uint8_t *label __unused,
 					size_t label_len __unused,
+					uint32_t mgf_algo __unused,
 					const uint8_t *src __unused,
 					size_t src_len __unused,
 					uint8_t *dst __unused,
@@ -610,6 +610,7 @@ TEE_Result crypto_acipher_rsaes_encrypt(uint32_t algo __unused,
 					struct rsa_public_key *key __unused,
 					const uint8_t *label __unused,
 					size_t label_len __unused,
+					uint32_t mgf_algo __unused,
 					const uint8_t *src __unused,
 					size_t src_len __unused,
 					uint8_t *dst __unused,
@@ -834,25 +835,51 @@ TEE_Result crypto_acipher_sm2_kep_derive(struct ecc_keypair *my_key __unused,
 #endif
 
 #if !defined(CFG_CRYPTO_X25519)
-TEE_Result crypto_acipher_alloc_x25519_keypair(struct x25519_keypair *key
+TEE_Result crypto_acipher_alloc_x25519_keypair(struct montgomery_keypair *key
 								__unused,
 					       size_t key_size_bits __unused)
 {
 	return TEE_ERROR_NOT_IMPLEMENTED;
 }
 
-TEE_Result crypto_acipher_gen_x25519_key(struct x25519_keypair *key __unused,
+TEE_Result crypto_acipher_gen_x25519_key(struct montgomery_keypair
+					 *key __unused,
 					 size_t key_size __unused)
 {
 	return TEE_ERROR_NOT_IMPLEMENTED;
 }
 
-TEE_Result crypto_acipher_x25519_shared_secret(struct x25519_keypair
+TEE_Result crypto_acipher_x25519_shared_secret(struct montgomery_keypair
 					       *private_key __unused,
 					       void *public_key __unused,
 					       void *secret __unused,
 					       unsigned long
 					       *secret_len __unused)
+{
+	return TEE_ERROR_NOT_IMPLEMENTED;
+}
+#endif
+
+#if !defined(CFG_CRYPTO_X448)
+TEE_Result crypto_acipher_alloc_x448_keypair(struct montgomery_keypair *key
+						       __unused,
+					       size_t key_size_bits __unused)
+{
+	return TEE_ERROR_NOT_IMPLEMENTED;
+}
+
+TEE_Result crypto_acipher_gen_x448_key(struct montgomery_keypair *key __unused,
+				       size_t key_size __unused)
+{
+	return TEE_ERROR_NOT_IMPLEMENTED;
+}
+
+TEE_Result crypto_acipher_x448_shared_secret(struct montgomery_keypair
+					     *private_key __unused,
+					     void *public_key __unused,
+					     void *secret __unused,
+					     unsigned long
+					     *secret_len __unused)
 {
 	return TEE_ERROR_NOT_IMPLEMENTED;
 }

@@ -5,8 +5,8 @@
  */
 
 #include <config.h>
+#include <drivers/wdt.h>
 #include <kernel/boot.h>
-#include <kernel/misc.h>
 #include <kernel/notif.h>
 #include <kernel/tee_l2cc_mutex.h>
 #include <kernel/virtualization.h>
@@ -28,8 +28,8 @@ static void tee_entry_get_shm_config(struct thread_smc_args *args)
 
 static void tee_entry_fastcall_l2cc_mutex(struct thread_smc_args *args)
 {
-	TEE_Result ret;
 #ifdef ARM32
+	TEE_Result ret = TEE_ERROR_NOT_SUPPORTED;
 	paddr_t pa = 0;
 
 	switch (args->a1) {
@@ -51,15 +51,16 @@ static void tee_entry_fastcall_l2cc_mutex(struct thread_smc_args *args)
 		args->a0 = OPTEE_SMC_RETURN_EBADCMD;
 		return;
 	}
-#else
-	ret = TEE_ERROR_NOT_SUPPORTED;
-#endif
+
 	if (ret == TEE_ERROR_NOT_SUPPORTED)
 		args->a0 = OPTEE_SMC_RETURN_UNKNOWN_FUNCTION;
 	else if (ret)
 		args->a0 = OPTEE_SMC_RETURN_EBADADDR;
 	else
 		args->a0 = OPTEE_SMC_RETURN_OK;
+#else
+	args->a0 = OPTEE_SMC_RETURN_UNKNOWN_FUNCTION;
+#endif
 }
 
 static void tee_entry_exchange_capabilities(struct thread_smc_args *args)
@@ -116,6 +117,9 @@ static void tee_entry_exchange_capabilities(struct thread_smc_args *args)
 
 	args->a1 |= OPTEE_SMC_SEC_CAP_RPC_ARG;
 	args->a3 = THREAD_RPC_MAX_NUM_PARAMS;
+
+	if (IS_ENABLED(CFG_RPMB_ANNOUNCE_PROBE_CAP))
+		args->a1 |= OPTEE_SMC_SEC_CAP_RPMB_PROBE;
 }
 
 static void tee_entry_disable_shm_cache(struct thread_smc_args *args)
@@ -217,6 +221,15 @@ static void get_async_notif_value(struct thread_smc_args *args)
 		args->a2 |= OPTEE_SMC_ASYNC_NOTIF_PENDING;
 }
 
+static void tee_entry_watchdog(struct thread_smc_args *args)
+{
+#if defined(CFG_WDT_SM_HANDLER)
+	__wdt_sm_handler(args);
+#else
+	args->a0 = OPTEE_SMC_RETURN_UNKNOWN_FUNCTION;
+#endif
+}
+
 /*
  * If tee_entry_fast() is overridden, it's still supposed to call this
  * function.
@@ -278,7 +291,13 @@ void __tee_entry_fast(struct thread_smc_args *args)
 
 	case OPTEE_SMC_ENABLE_ASYNC_NOTIF:
 		if (IS_ENABLED(CFG_CORE_ASYNC_NOTIF)) {
-			notif_deliver_atomic_event(NOTIF_EVENT_STARTED);
+			uint16_t g_id = 0;
+
+			if (IS_ENABLED(CFG_NS_VIRTUALIZATION))
+				g_id = args->a7;
+
+			notif_deliver_atomic_event(NOTIF_EVENT_STARTED, g_id);
+
 			args->a0 = OPTEE_SMC_RETURN_OK;
 		} else {
 			args->a0 = OPTEE_SMC_RETURN_UNKNOWN_FUNCTION;
@@ -289,6 +308,11 @@ void __tee_entry_fast(struct thread_smc_args *args)
 			get_async_notif_value(args);
 		else
 			args->a0 = OPTEE_SMC_RETURN_UNKNOWN_FUNCTION;
+		break;
+
+	/* Watchdog entry if handler ID is defined in TOS range */
+	case CFG_WDT_SM_HANDLER_ID:
+		tee_entry_watchdog(args);
 		break;
 
 	default:

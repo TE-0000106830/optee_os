@@ -4,6 +4,7 @@
  */
 
 #include <assert.h>
+#include <config.h>
 #include <crypto/crypto.h>
 #include <initcall.h>
 #include <kernel/tee_common_otp.h>
@@ -318,7 +319,7 @@ static int get_idx_from_counter(uint32_t counter0, uint32_t counter1)
 }
 
 static TEE_Result init_head_from_data(struct tee_fs_htree *ht,
-				      const uint8_t *hash)
+				      const uint8_t *hash, uint32_t min_counter)
 {
 	TEE_Result res;
 	int idx;
@@ -359,6 +360,9 @@ static TEE_Result init_head_from_data(struct tee_fs_htree *ht,
 
 		ht->head = head[idx];
 	}
+
+	if (ht->head.counter < min_counter)
+		return TEE_ERROR_SECURITY;
 
 	ht->root.id = 1;
 
@@ -450,7 +454,17 @@ static TEE_Result authenc_init(void **ctx_ret, TEE_OperationMode mode,
 		iv = ni->iv;
 	} else {
 		iv = ht->head.iv;
-		aad_len += TEE_FS_HTREE_HASH_SIZE + sizeof(ht->head.counter);
+		aad_len += sizeof(ht->head.counter);
+
+		/*
+		 * With CFG_REE_FS_HTREE_HASH_SIZE_COMPAT, hash data passed
+		 * for AAD is truncated to TEE_FS_HTREE_FEK_SIZE bytes so
+		 * use the correct size aad_len computation.
+		 */
+		if (IS_ENABLED(CFG_REE_FS_HTREE_HASH_SIZE_COMPAT))
+			aad_len += TEE_FS_HTREE_FEK_SIZE;
+		else
+			aad_len += TEE_FS_HTREE_HASH_SIZE;
 	}
 
 	if (mode == TEE_MODE_ENCRYPT) {
@@ -470,8 +484,13 @@ static TEE_Result authenc_init(void **ctx_ret, TEE_OperationMode mode,
 		goto err_free;
 
 	if (!ni) {
+		size_t hash_size = TEE_FS_HTREE_HASH_SIZE;
+
+		if (IS_ENABLED(CFG_REE_FS_HTREE_HASH_SIZE_COMPAT))
+			hash_size = TEE_FS_HTREE_FEK_SIZE;
+
 		res = crypto_authenc_update_aad(ctx, mode, ht->root.node.hash,
-						TEE_FS_HTREE_FEK_SIZE);
+						hash_size);
 		if (res != TEE_SUCCESS)
 			goto err;
 
@@ -611,7 +630,8 @@ static TEE_Result init_root_node(struct tee_fs_htree *ht)
 	return res;
 }
 
-TEE_Result tee_fs_htree_open(bool create, uint8_t *hash, const TEE_UUID *uuid,
+TEE_Result tee_fs_htree_open(bool create, uint8_t *hash, uint32_t min_counter,
+			     const TEE_UUID *uuid,
 			     const struct tee_fs_htree_storage *stor,
 			     void *stor_aux, struct tee_fs_htree **ht_ret)
 {
@@ -626,7 +646,9 @@ TEE_Result tee_fs_htree_open(bool create, uint8_t *hash, const TEE_UUID *uuid,
 	ht->stor_aux = stor_aux;
 
 	if (create) {
-		const struct tee_fs_htree_image dummy_head = { .counter = 0 };
+		const struct tee_fs_htree_image dummy_head = {
+			.counter = min_counter,
+		};
 
 		res = crypto_rng_read(ht->fek, sizeof(ht->fek));
 		if (res != TEE_SUCCESS)
@@ -642,12 +664,12 @@ TEE_Result tee_fs_htree_open(bool create, uint8_t *hash, const TEE_UUID *uuid,
 			goto out;
 
 		ht->dirty = true;
-		res = tee_fs_htree_sync_to_storage(&ht, hash);
+		res = tee_fs_htree_sync_to_storage(&ht, hash, NULL);
 		if (res != TEE_SUCCESS)
 			goto out;
 		res = rpc_write_head(ht, 0, &dummy_head);
 	} else {
-		res = init_head_from_data(ht, hash);
+		res = init_head_from_data(ht, hash, min_counter);
 		if (res != TEE_SUCCESS)
 			goto out;
 
@@ -755,7 +777,7 @@ static TEE_Result update_root(struct tee_fs_htree *ht)
 }
 
 TEE_Result tee_fs_htree_sync_to_storage(struct tee_fs_htree **ht_arg,
-					uint8_t *hash)
+					uint8_t *hash, uint32_t *counter)
 {
 	TEE_Result res;
 	struct tee_fs_htree *ht = *ht_arg;
@@ -787,6 +809,8 @@ TEE_Result tee_fs_htree_sync_to_storage(struct tee_fs_htree **ht_arg,
 	ht->dirty = false;
 	if (hash)
 		memcpy(hash, ht->root.node.hash, sizeof(ht->root.node.hash));
+	if (counter)
+		*counter = ht->head.counter;
 out:
 	crypto_hash_free_ctx(ctx);
 	if (res != TEE_SUCCESS)

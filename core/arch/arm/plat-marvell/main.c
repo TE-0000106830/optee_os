@@ -71,7 +71,7 @@ register_phys_mem_pgdir(MEM_AREA_IO_SEC, GICD_BASE, CORE_MMU_PGDIR_SIZE);
 register_phys_mem_pgdir(MEM_AREA_IO_SEC, GICC_BASE, CORE_MMU_PGDIR_SIZE);
 #endif
 
-void main_init_gic(void)
+void boot_primary_init_intc(void)
 {
 	paddr_t gicd_base = 0;
 	paddr_t gicc_base = 0;
@@ -85,7 +85,7 @@ void main_init_gic(void)
 }
 #endif
 
-void console_init(void)
+void plat_console_init(void)
 {
 #if defined(PLATFORM_FLAVOR_armada7k8k)
 	serial8250_uart_init(&console_data, CONSOLE_UART_BASE,

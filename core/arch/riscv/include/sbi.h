@@ -3,8 +3,8 @@
  * Copyright 2022 NXP
  */
 
-#ifndef SBI_H
-#define SBI_H
+#ifndef __SBI_H
+#define __SBI_H
 
 #if defined(CFG_RISCV_SBI)
 
@@ -20,16 +20,49 @@
 #define SBI_ERR_ALREADY_STOPPED		-8
 
 /* SBI Extension IDs */
-#define SBI_EXT_0_1_CONSOLE_PUTCHAR	0x01, 0
+#define SBI_EXT_0_1_CONSOLE_PUTCHAR	0x01
+#define SBI_EXT_BASE			0x10
 #define SBI_EXT_HSM			0x48534D
-
-/* SBI function IDs for HSM extension */
-#define SBI_EXT_HSM_HART_START		U(0)
-#define SBI_EXT_HSM_HART_STOP		U(1)
-#define SBI_EXT_HSM_HART_GET_STATUS	U(2)
-#define SBI_EXT_HSM_HART_SUSPEND	U(3)
+#define SBI_EXT_DBCN			0x4442434E
+#define SBI_EXT_TEE			0x544545
 
 #ifndef __ASSEMBLER__
+
+/* SBI function IDs for Base extension */
+enum sbi_ext_base_fid {
+	SBI_EXT_BASE_GET_SPEC_VERSION = 0,
+	SBI_EXT_BASE_GET_IMP_ID,
+	SBI_EXT_BASE_GET_IMP_VERSION,
+	SBI_EXT_BASE_PROBE_EXT,
+	SBI_EXT_BASE_GET_MVENDORID,
+	SBI_EXT_BASE_GET_MARCHID,
+	SBI_EXT_BASE_GET_MIMPID,
+};
+
+/* SBI function IDs for HSM extension */
+enum sbi_ext_hsm_fid {
+	SBI_EXT_HSM_HART_START = 0,
+	SBI_EXT_HSM_HART_STOP,
+	SBI_EXT_HSM_HART_GET_STATUS,
+	SBI_EXT_HSM_HART_SUSPEND,
+};
+
+/* SBI function IDs for Debug Console extension */
+enum sbi_ext_dbcn_fid {
+	SBI_EXT_DBCN_CONSOLE_WRITE = 0,
+	SBI_EXT_DBCN_CONSOLE_READ = 1,
+	SBI_EXT_DBCN_CONSOLE_WRITE_BYTE = 2,
+};
+
+enum sbi_hsm_hart_state {
+	SBI_HSM_STATE_STARTED = 0,
+	SBI_HSM_STATE_STOPPED,
+	SBI_HSM_STATE_START_PENDING,
+	SBI_HSM_STATE_STOP_PENDING,
+	SBI_HSM_STATE_SUSPENDED,
+	SBI_HSM_STATE_SUSPEND_PENDING,
+	SBI_HSM_STATE_RESUME_PENDING,
+};
 
 #include <compiler.h>
 #include <encoding.h>
@@ -38,9 +71,12 @@
 #include <types_ext.h>
 #include <util.h>
 
+int sbi_probe_extension(int extid);
 void sbi_console_putchar(int ch);
-int sbi_boot_hart(uint32_t hart_id, paddr_t start_addr, unsigned long arg);
+int sbi_dbcn_write_byte(unsigned char ch);
+int sbi_hsm_hart_start(uint32_t hartid, paddr_t start_addr, unsigned long arg);
+int sbi_hsm_hart_get_status(uint32_t hartid, enum sbi_hsm_hart_state *status);
 
 #endif /*__ASSEMBLER__*/
 #endif /*defined(CFG_RISCV_SBI)*/
-#endif /*SBI_H*/
+#endif /*__SBI_H*/

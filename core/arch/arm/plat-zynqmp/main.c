@@ -75,12 +75,12 @@ register_ddr(DRAM1_BASE, CFG_DDR_SIZE - 0x80000000);
 register_ddr(DRAM0_BASE, CFG_DDR_SIZE);
 #endif
 
-void main_init_gic(void)
+void boot_primary_init_intc(void)
 {
 	gic_init(GIC_BASE + GICC_OFFSET, GIC_BASE + GICD_OFFSET);
 }
 
-void console_init(void)
+void plat_console_init(void)
 {
 	cdns_uart_init(&console_data, CONSOLE_UART_BASE,
 		       CONSOLE_UART_CLK_IN_HZ, CONSOLE_BAUDRATE);

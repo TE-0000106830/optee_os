@@ -62,7 +62,7 @@ void plat_trace_ext_puts(const char *str)
 		bcm_elog_putchar(*p);
 }
 
-void console_init(void)
+void plat_console_init(void)
 {
 	serial8250_uart_init(&console_data, CONSOLE_UART_BASE,
 			     CONSOLE_UART_CLK_IN_HZ, CONSOLE_BAUDRATE);
@@ -72,7 +72,7 @@ void console_init(void)
 		      CFG_BCM_ELOG_AP_UART_LOG_SIZE);
 }
 
-void main_init_gic(void)
+void boot_primary_init_intc(void)
 {
 	gic_init(0, GICD_BASE);
 }

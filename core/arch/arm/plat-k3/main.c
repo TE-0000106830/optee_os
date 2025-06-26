@@ -32,23 +32,24 @@ register_phys_mem_pgdir(MEM_AREA_IO_SEC, SEC_PROXY_RT_BASE, SEC_PROXY_RT_SIZE);
 register_ddr(DRAM0_BASE, DRAM0_SIZE);
 register_ddr(DRAM1_BASE, DRAM1_SIZE);
 
-void main_init_gic(void)
+void boot_primary_init_intc(void)
 {
 	gic_init(GICC_BASE, GICD_BASE);
 }
 
-void main_secondary_init_gic(void)
+void boot_secondary_init_intc(void)
 {
-	gic_cpu_init();
+	gic_init_per_cpu();
 }
 
-void console_init(void)
+void plat_console_init(void)
 {
 	serial8250_uart_init(&console_data, CONSOLE_UART_BASE,
 			     CONSOLE_UART_CLK_IN_HZ, CONSOLE_BAUDRATE);
 	register_serial_console(&console_data.chip);
 }
 
+#ifndef PLATFORM_FLAVOR_am62lx
 static TEE_Result init_ti_sci(void)
 {
 	TEE_Result ret = TEE_SUCCESS;
@@ -64,7 +65,13 @@ static TEE_Result init_ti_sci(void)
 	return TEE_SUCCESS;
 }
 
-service_init(init_ti_sci);
+/*
+ * TISCI services are required for initialization of TRNG service that gets
+ * initialized during service_init_crypto.
+ *
+ * Initialize TISCI service just before service_init_crypto.
+ */
+early_init_late(init_ti_sci);
 
 static TEE_Result secure_boot_information(void)
 {
@@ -105,3 +112,4 @@ TEE_Result tee_otp_get_hw_unique_key(struct tee_hw_unique_key *hwkey)
 
 	return TEE_SUCCESS;
 }
+#endif /* PLATFORM_FLAVOR_am62lx */

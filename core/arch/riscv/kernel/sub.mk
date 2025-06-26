@@ -1,5 +1,6 @@
 srcs-y += spinlock.S
 srcs-y += cache_helpers_rv.S
+srcs-y += csr_detect.S
 srcs-y += idle.c
 srcs-$(CFG_RISCV_TIME_SOURCE_RDTIME) += tee_time_rdtime.c
 srcs-$(CFG_RISCV_SBI) += sbi.c
@@ -12,6 +13,9 @@ srcs-y += thread_arch.c
 srcs-y += arch_scall_rv.S
 srcs-y += arch_scall.c
 srcs-$(CFG_UNWIND) += unwind_rv.c
+srcs-$(CFG_SEMIHOSTING) += semihosting_rv.S
+srcs-y += thread_optee_abi.c
+srcs-y += thread_optee_abi_rv.S
 asm-defines-y += asm-defines.c
 
 ifeq ($(CFG_SYSCALL_FTRACE),y)

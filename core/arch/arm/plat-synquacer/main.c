@@ -28,14 +28,14 @@ register_phys_mem_pgdir(MEM_AREA_IO_SEC, GIC_BASE, CORE_MMU_PGDIR_SIZE);
 register_phys_mem_pgdir(MEM_AREA_IO_SEC, THERMAL_SENSOR_BASE,
 			CORE_MMU_PGDIR_SIZE);
 
-void console_init(void)
+void plat_console_init(void)
 {
 	pl011_init(&console_data, CONSOLE_UART_BASE, CONSOLE_UART_CLK_IN_HZ,
 		   CONSOLE_BAUDRATE);
 	register_serial_console(&console_data.chip);
 }
 
-void main_init_gic(void)
+void boot_primary_init_intc(void)
 {
 	gic_init(0, GIC_BASE + GICD_OFFSET);
 }
@@ -59,8 +59,11 @@ static struct itr_handler timer_itr = {
 
 static TEE_Result init_timer_itr(void)
 {
-	itr_add(&timer_itr);
-	itr_enable(IT_SEC_TIMER);
+	if (interrupt_add_handler_with_chip(interrupt_get_main_chip(),
+					    &timer_itr))
+		panic();
+
+	interrupt_enable(timer_itr.chip, timer_itr.it);
 
 	/* Enable timer FIQ to fetch entropy required during boot */
 	generic_timer_start(TIMER_PERIOD_MS);

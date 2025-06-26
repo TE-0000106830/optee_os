@@ -31,7 +31,7 @@ static const bool is_32bit;
 static TEE_Result alloc_and_map_fobj(struct user_mode_ctx *uctx, size_t sz,
 				     uint32_t prot, uint32_t flags, vaddr_t *va)
 {
-	size_t num_pgs = ROUNDUP(sz, SMALL_PAGE_SIZE) / SMALL_PAGE_SIZE;
+	size_t num_pgs = ROUNDUP_DIV(sz, SMALL_PAGE_SIZE);
 	struct fobj *fobj = fobj_ta_mem_alloc(num_pgs);
 	struct mobj *mobj = mobj_with_fobj_alloc(fobj, NULL,
 						 TEE_MATTR_MEM_TYPE_TAGGED);
@@ -121,7 +121,6 @@ TEE_Result ldelf_init_with_ldelf(struct ts_session *sess,
 	uint32_t panicked = 0;
 	uaddr_t usr_stack = 0;
 	struct ldelf_arg *arg_bbuf = NULL;
-	void *bbuf = NULL;
 
 	usr_stack = uctx->ldelf_stack_ptr;
 	usr_stack -= ROUNDUP(sizeof(*arg), STACK_ALIGNMENT);
@@ -154,11 +153,9 @@ TEE_Result ldelf_init_with_ldelf(struct ts_session *sess,
 		return res;
 	}
 
-	res = bb_memdup_user(arg, sizeof(*arg), &bbuf);
+	res = BB_MEMDUP_USER(arg, sizeof(*arg), &arg_bbuf);
 	if (res)
 		return res;
-
-	arg_bbuf = bbuf;
 
 	if (is_user_ta_ctx(uctx->ts_ctx)) {
 		/*
@@ -182,7 +179,7 @@ TEE_Result ldelf_init_with_ldelf(struct ts_session *sess,
 #endif
 	uctx->dl_entry_func = arg_bbuf->dl_entry;
 
-	bb_free(bbuf, sizeof(*arg));
+	bb_free(arg_bbuf, sizeof(*arg));
 
 	return TEE_SUCCESS;
 }
@@ -375,6 +372,7 @@ TEE_Result ldelf_dlopen(struct user_mode_ctx *uctx, TEE_UUID *uuid,
 {
 	uaddr_t usr_stack = uctx->ldelf_stack_ptr;
 	TEE_Result res = TEE_ERROR_GENERIC;
+	struct dl_entry_arg *usr_arg = NULL;
 	struct dl_entry_arg *arg = NULL;
 	uint32_t panic_code = 0;
 	uint32_t panicked = 0;
@@ -392,8 +390,9 @@ TEE_Result ldelf_dlopen(struct user_mode_ctx *uctx, TEE_UUID *uuid,
 	arg->dlopen.flags = flags;
 
 	usr_stack -= ROUNDUP(sizeof(*arg), STACK_ALIGNMENT);
+	usr_arg = (void *)usr_stack;
 
-	res = copy_to_user((void *)usr_stack, arg, sizeof(*arg));
+	res = copy_to_user(usr_arg, arg, sizeof(*arg));
 	if (res)
 		return res;
 
@@ -412,8 +411,13 @@ TEE_Result ldelf_dlopen(struct user_mode_ctx *uctx, TEE_UUID *uuid,
 		abort_print_current_ts();
 		res = TEE_ERROR_TARGET_DEAD;
 	}
-	if (!res)
-		res = arg->ret;
+	if (!res) {
+		TEE_Result res2 = TEE_SUCCESS;
+
+		res2 = GET_USER_SCALAR(res, &usr_arg->ret);
+		if (res2)
+			res = res2;
+	}
 
 	return res;
 }

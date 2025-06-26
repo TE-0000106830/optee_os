@@ -68,6 +68,8 @@ struct drvcrypt_rsa_ed {
 	struct drvcrypt_buf message; /* Message to encrypt or decrypted */
 	struct drvcrypt_buf cipher;  /* Cipher encrypted or to decrypt */
 	struct drvcrypt_buf label;   /* Additional Label (RSAES) */
+	uint32_t mgf_algo;           /* MGF1 hash algorithm (RSAES) */
+	size_t mgf_size;             /* MGF1 hash digest size (RSAES) */
 
 	/* RSA Mask Generation function */
 	TEE_Result (*mgf)(struct drvcrypt_rsa_mgf *mgf_data);
@@ -232,6 +234,42 @@ struct drvcrypt_dsa {
 static inline TEE_Result drvcrypt_register_dsa(struct drvcrypt_dsa *ops)
 {
 	return drvcrypt_register(CRYPTO_DSA, (void *)ops);
+}
+
+/*
+ * Crypto Library Montgomery driver operations
+ */
+
+struct drvcrypt_montgomery {
+	/* Allocates the Montgomery key pair */
+	TEE_Result (*alloc_keypair)(struct montgomery_keypair *key,
+				    size_t size_bits);
+	/* Generates the Montgomery key pair */
+	TEE_Result (*gen_keypair)(struct montgomery_keypair *key,
+				  size_t key_size);
+	/* Montgomery Shared Secret */
+	TEE_Result (*shared_secret)(struct drvcrypt_secret_data *sdata);
+};
+
+/*
+ * Register a X25519 processing driver in the crypto API
+ *
+ * @ops - Driver operations in the HW layer
+ */
+static inline TEE_Result drvcrypt_register_x25519(struct drvcrypt_montgomery
+						  *ops)
+{
+	return drvcrypt_register(CRYPTO_X25519, (void *)ops);
+}
+
+/*
+ * Register a X448 processing driver in the crypto API
+ *
+ * @ops - Driver operations in the HW layer
+ */
+static inline TEE_Result drvcrypt_register_x448(struct drvcrypt_montgomery *ops)
+{
+	return drvcrypt_register(CRYPTO_X448, (void *)ops);
 }
 
 #endif /* __DRVCRYPT_ACIPHER_H__ */

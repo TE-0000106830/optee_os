@@ -37,17 +37,19 @@ endif
 link-ldflags += --as-needed # Do not add dependency on unused shlib
 link-ldflags += $(link-ldflags$(sm))
 
-$(link-out-dir$(sm))/dyn_list:
+$(link-out-dir$(sm))/dyn_list: FORCE
 	@$(cmd-echo-silent) '  GEN     $@'
 	$(q)mkdir -p $(dir $@)
-	$(q)echo "{" >$@
-	$(q)echo "__elf_phdr_info;" >>$@
+	$(q)echo "{" >$@.tmp
+	$(q)echo "__elf_phdr_info;" >>$@.tmp
 ifeq ($(CFG_FTRACE_SUPPORT),y)
-	$(q)echo "__ftrace_info;" >>$@
+	$(q)echo "__ftrace_info;" >>$@.tmp
 endif
-	$(q)echo "trace_ext_prefix;" >>$@
-	$(q)echo "trace_level;" >>$@
-	$(q)echo "};" >>$@
+	$(q)echo "trace_ext_prefix;" >>$@.tmp
+	$(q)echo "trace_level;" >>$@.tmp
+	$(q)echo "ta_head;" >>$@.tmp
+	$(q)echo "};" >>$@.tmp
+	$(q)$(call mv-if-changed,$@.tmp,$@)
 link-ldflags += --dynamic-list $(link-out-dir$(sm))/dyn_list
 dynlistdep = $(link-out-dir$(sm))/dyn_list
 cleanfiles += $(link-out-dir$(sm))/dyn_list
@@ -56,15 +58,21 @@ link-ldadd  = $(user-ta-ldadd) $(addprefix -L,$(libdirs))
 link-ldadd += --start-group
 link-ldadd += $(addprefix -l,$(libnames))
 ifneq (,$(filter %.cpp,$(srcs)))
+ifneq ($(CFG_TA_LIBGCC),y)
+$(error C++ code depends on CFG_TA_LIBGCC=y)
+endif
 link-ldflags += --eh-frame-hdr
 link-ldadd += $(libstdc++$(sm)) $(libgcc_eh$(sm))
 endif
 link-ldadd += --end-group
+ifeq ($(CFG_TA_LIBGCC),y)
+link-ldadd += $(libgcc$(sm))
+endif
 
 link-ldadd-after-libgcc += $(addprefix -l,$(libnames-after-libgcc))
 
 ldargs-$(user-ta-uuid).elf := $(link-ldflags) $(objs) $(link-ldadd) \
-				$(libgcc$(sm)) $(link-ldadd-after-libgcc)
+				$(link-ldadd-after-libgcc)
 
 link-script-cppflags-$(sm) := \
 	$(filter-out $(CPPFLAGS_REMOVE) $(cppflags-remove), \
@@ -80,7 +88,7 @@ define gen-link-t
 $(link-script-pp$(sm)): $(link-script$(sm)) $(conf-file) $(link-script-pp-makefiles$(sm))
 	@$(cmd-echo-silent) '  CPP     $$@'
 	$(q)mkdir -p $$(dir $$@)
-	$(q)$(CPP$(sm)) -P -MT $$@ -MD -MF $(link-script-dep$(sm)) \
+	$(q)$(CPP$(sm)) -P -MT $$@ -MD -MP -MF $(link-script-dep$(sm)) \
 		$(link-script-cppflags-$(sm)) $$< -o $$@
 
 $(link-out-dir$(sm))/$(user-ta-uuid).elf: $(objs) $(libdeps) \

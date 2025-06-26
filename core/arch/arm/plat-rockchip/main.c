@@ -20,19 +20,28 @@ register_phys_mem_pgdir(MEM_AREA_IO_NSEC,
 			CFG_EARLY_CONSOLE_BASE, CFG_EARLY_CONSOLE_SIZE);
 #endif
 
+#ifdef CFG_DRAM_BASE
+register_ddr(CFG_DRAM_BASE, CFG_DRAM_SIZE);
+#endif
+#ifdef CFG_NSEC_DDR_1_BASE
+register_ddr(CFG_NSEC_DDR_1_BASE, CFG_NSEC_DDR_1_SIZE);
+#endif
+
+#ifdef CFG_GIC
 register_phys_mem_pgdir(MEM_AREA_IO_SEC, GIC_BASE, GIC_SIZE);
 
-void main_init_gic(void)
+void boot_primary_init_intc(void)
 {
 	gic_init(GICC_BASE, GICD_BASE);
 }
 
-void main_secondary_init_gic(void)
+void boot_secondary_init_intc(void)
 {
-	gic_cpu_init();
+	gic_init_per_cpu();
 }
+#endif
 
-void console_init(void)
+void plat_console_init(void)
 {
 #if defined(CFG_EARLY_CONSOLE)
 	/*

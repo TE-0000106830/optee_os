@@ -3,7 +3,10 @@
  * Copyright 2022 NXP
  */
 
-#ifndef KERNEL_MISC_ARCH_H
-#define KERNEL_MISC_ARCH_H
+#ifndef __KERNEL_MISC_ARCH_H
+#define __KERNEL_MISC_ARCH_H
 
-#endif /*KERNEL_MISC_ARCH_H*/
+/* Bootable hart ID table */
+extern uint32_t hartids[CFG_TEE_CORE_NB_CORE];
+
+#endif /*__KERNEL_MISC_ARCH_H*/

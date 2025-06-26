@@ -198,6 +198,9 @@ static TEE_Result resolve_sym_helper(const char *name, vaddr_t *val,
 		uint32_t *bucket = &hashtab[2];
 		uint32_t *chain = &bucket[nbuckets];
 
+		if (!nbuckets)
+			return TEE_ERROR_ITEM_NOT_FOUND;
+
 		hash = elf_hash(name);
 
 		for (n = bucket[hash % nbuckets]; n; n = chain[n]) {
@@ -282,7 +285,7 @@ static void resolve_sym(const char *name, vaddr_t *val, struct ta_elf **mod,
 	if (res) {
 		if (err_if_not_found)
 			err(res, "Symbol %s not found", name);
-		else
+		else if (val)
 			*val = 0;
 	}
 }
@@ -644,7 +647,7 @@ static void e64_relocate(struct ta_elf *elf, unsigned int rel_sidx)
 	rela_end = rela + shdr[rel_sidx].sh_size / sizeof(Elf64_Rela);
 	for (; rela < rela_end; rela++) {
 		Elf64_Addr *where = NULL;
-		size_t sym_idx = 0;
+		size_t sym_idx __maybe_unused = 0;
 
 		/* Check the address is inside TA memory */
 		if (rela->r_offset >= (elf->max_addr - elf->load_addr))

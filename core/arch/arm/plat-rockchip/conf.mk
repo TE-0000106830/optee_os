@@ -1,6 +1,7 @@
 PLATFORM_FLAVOR ?= rk322x
 
-$(call force,CFG_GIC,y)
+# No GIC for rk3399
+$(call force,CFG_GIC,$(if $(filter rk3399,$(PLATFORM_FLAVOR)),n,y))
 $(call force,CFG_SECURE_TIME_SOURCE_CNTPCT,y)
 $(call force,CFG_8250_UART,y)
 
@@ -54,6 +55,27 @@ CFG_SHMEM_START  ?= 0x32000000
 CFG_SHMEM_SIZE   ?= 0x00400000
 
 CFG_EARLY_CONSOLE ?= n
+endif
+
+ifeq ($(PLATFORM_FLAVOR),rk3588)
+include core/arch/arm/cpu/cortex-armv8-0.mk
+$(call force,CFG_TEE_CORE_NB_CORE,8)
+$(call force,CFG_ARM_GICV3,y)
+$(call force,CFG_AUTO_MAX_PA_BITS,y)
+$(call force,CFG_CRYPTO_WITH_CE,y)
+
+CFG_TZDRAM_START ?= 0x30000000
+CFG_TZDRAM_SIZE ?= 0x02000000
+CFG_SHMEM_START ?= 0x32000000
+CFG_SHMEM_SIZE ?= 0x00400000
+
+CFG_EARLY_CONSOLE ?= y
+CFG_EARLY_CONSOLE_BASE ?= UART2_BASE
+CFG_EARLY_CONSOLE_SIZE ?= UART2_SIZE
+CFG_EARLY_CONSOLE_BAUDRATE ?= 1500000
+CFG_EARLY_CONSOLE_CLK_IN_HZ ?= 24000000
+
+CFG_DTB_MAX_SIZE ?= 0x60000
 endif
 
 ifeq ($(platform-flavor-armv8),1)
